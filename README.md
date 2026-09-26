@@ -1,5 +1,26 @@
 # Outerbase Studio
 
+## This fork: secure embedding and Cloudflare Workers
+
+See [build and Cloudflare instructions](docs/cloudflare.md) and the
+[iframe transport contract](docs/embedding.md) for this fork's `/embed/mysql`
+integration. Studio remains the UI client: the future parent application owns
+authentication, authorization, database credentials and SQL execution.
+
+Use Node.js 24 LTS (22 or later required), then run:
+
+```sh
+npm ci
+npm run typecheck
+npm run lint
+npm test -- --runInBand
+npm run build
+npm run preview
+```
+
+Configure `NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN` before building to enable embedding.
+Ordinary Studio pages work without it; framing is denied by default.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/outerbase/studio)
 
 **Outerbase Studio** is a lightweight, browser-based GUI for managing SQL databases, designed for simplicity and versatility. Initially built for LibSQL and SQLite, it now supports a broad range of databases, including:

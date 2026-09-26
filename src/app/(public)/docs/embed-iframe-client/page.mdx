@@ -1,222 +1,124 @@
 import { DocContent } from "@/components/mdx/docs";
 
 export const metadata = {
-  title: "Embedding Our Client via iFrame",
+  title: "Embedding Studio via iFrame",
 };
 
-<DocContent title="Embedding Our Client via iFrame" group="Integration">
+<DocContent title="Embedding Studio via iFrame" group="Integration">
 
-LibSQL Studio is a powerful SQLite client that you can now embed
-in your website using our iFrame API. Key advantages of using
-our iframe include:
+Studio can render database results inside your application while your backend
+retains the database credentials and executes queries. This fork requires a
+configured parent origin and a fresh viewer channel. There is no built-in
+Pelican broker or database session backend yet.
 
-- No need to expose any sensitive credentials to our client
-- Ability to embed and rebrand it on your website
-- Instant access to LibSQL Studio updates
+## Configure the parent origin
 
-## Embed LibSQL Studio
+Set this public environment variable before building Studio:
 
-You can embed LibSQL Studio as the following
+```dotenv
+NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN=https://panel.example.com
+```
+
+Use an exact HTTP(S) origin without a trailing slash or path. Rebuild when it
+changes. For local development, an exact origin such as `http://localhost:3000`
+uses the same security checks. Missing configuration disables framing of embed
+pages and causes iframe transport initialization to fail; normal Studio pages
+remain usable.
+
+## Embed a viewer
+
+The parent generates a fresh cryptographically random nonce for each viewer,
+for example with `crypto.randomUUID()`. It supplies that value as the single
+`channel` parameter. The channel must contain 22–256 URL-safe letters, digits,
+underscores or hyphens. This literal is an example only:
 
 ```html
-<iframe src="https://libsqlstudio.com/embed/sqlite"></iframe>
+<iframe
+  src="https://studio.example.com/embed/mysql?channel=6ed3eb71-431d-4e72-9e84-8d032b6935cb"
+></iframe>
 ```
 
-There are several parameters you can control. For example:
+Existing drivers such as `/embed/sqlite` use the same protocol. Optional `name`,
+`color` and theme parameters remain available.
 
-```html
-<iframe src="https://libsqlstudio.com/embed/sqlite?name=MyCoolDatabase"></iframe>
+The channel binds messages to a viewer; it is **not authentication or
+permission to access a database**. Never put passwords, API credentials or
+authentication tokens in the URL.
+
+## Message contract
+
+Studio sends a query or transaction to the configured parent origin:
+
+```json
+{
+  "type": "query",
+  "id": 1,
+  "channel": "6ed3eb71-431d-4e72-9e84-8d032b6935cb",
+  "statement": "SELECT 1"
+}
 ```
 
-## Example
+```json
+{
+  "type": "transaction",
+  "id": 2,
+  "channel": "6ed3eb71-431d-4e72-9e84-8d032b6935cb",
+  "statements": ["SELECT 1", "SELECT 2"]
+}
+```
 
-Here is a sample code demonstrating how to integrate using React and connect to Turso:
+The parent validates the Studio origin, the iframe's `contentWindow`, the channel
+and the request shape, then forwards permitted operations to its authenticated
+backend. The parent must echo `type`, `id` and `channel` in every response.
+A query success carries a `DatabaseResultSet` in `data`; a transaction success
+carries an array of result sets. An error carries a string `error` and no `data`.
 
-```tsx
-"use client";
-import { createClient, ResultSet } from "@libsql/client/web";
-import { useEffect, useMemo, useRef } from "react";
-
-export default function ExamplePage() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const client = useMemo(() => {
-    return createClient({
-      url: "libsql://xxx",
-      authToken: "xxx",
-    });
-  }, []);
-
-  useEffect(() => {
-    const contentWindow = iframeRef.current?.contentWindow;
-
-    if (contentWindow) {
-      const handler = (e: MessageEvent<ClientRequest>) => {
-        if (e.data.type === "query" && e.data.statement) {
-          client
-            .execute(e.data.statement)
-            .then((r) => {
-              contentWindow.postMessage(
-                {
-                  type: e.data.type,
-                  id: e.data.id,
-                  data: transformRawResult(r),
-                },
-                "*"
-              );
-            })
-            .catch((err) => {
-              contentWindow.postMessage(
-                {
-                  type: e.data.type,
-                  id: e.data.id,
-                  error: (err as Error).message,
-                },
-                "*"
-              );
-            });
-        } else if (e.data.type === "transaction" && e.data.statements) {
-          client
-            .batch(e.data.statements, "write")
-            .then((r) => {
-              contentWindow.postMessage(
-                {
-                  type: e.data.type,
-                  id: e.data.id,
-                  data: r.map(transformRawResult),
-                },
-                "*"
-              );
-            })
-            .catch((err) => {
-              contentWindow.postMessage(
-                {
-                  type: e.data.type,
-                  id: e.data.id,
-                  error: (err as Error).message,
-                },
-                "*"
-              );
-            });
-        }
-      };
-
-      window.addEventListener("message", handler);
-      return () => window.removeEventListener("message", handler);
+```json
+{
+  "type": "query",
+  "id": 1,
+  "channel": "6ed3eb71-431d-4e72-9e84-8d032b6935cb",
+  "data": {
+    "headers": [
+      {
+        "name": "value",
+        "displayName": "value",
+        "originalType": "INT",
+        "type": 2
+      }
+    ],
+    "rows": [{ "value": 1 }],
+    "stat": {
+      "rowsAffected": 0,
+      "rowsRead": 1,
+      "rowsWritten": null,
+      "queryDurationMs": 1
     }
-  }, [iframeRef]);
-
-  return (
-    <iframe
-      className="border-0 h-screen w-screen"
-      ref={iframeRef}
-      src="https://libsqlstudio.com/embed/sqlite"
-    />
-  );
+  }
 }
-
-interface ClientRequest {
-  type: "query" | "transaction";
-  id: number;
-  statement?: string;
-  statements?: string[];
-}
-
-interface ResultHeader {
-  name: string;
-  displayName: string;
-  originalType: string | null;
-  type: ColumnType;
-}
-
-interface Result {
-  rows: Record<string, unknown>[];
-  headers: ResultHeader[];
-  stat: {
-    rowsAffected: number;
-    rowsRead: number | null;
-    rowsWritten: number | null;
-    queryDurationMs: number | null;
-  };
-  lastInsertRowid?: number;
-}
-
-enum ColumnType {
-  TEXT = 1,
-  INTEGER = 2,
-  REAL = 3,
-  BLOB = 4,
-}
-
-function convertSqliteType(type: string | undefined): ColumnType {
-  // https://www.sqlite.org/datatype3.html
-  if (type === undefined) return ColumnType.BLOB;
-
-  type = type.toUpperCase();
-
-  if (type.includes("CHAR")) return ColumnType.TEXT;
-  if (type.includes("TEXT")) return ColumnType.TEXT;
-  if (type.includes("CLOB")) return ColumnType.TEXT;
-  if (type.includes("STRING")) return ColumnType.TEXT;
-
-  if (type.includes("INT")) return ColumnType.INTEGER;
-
-  if (type.includes("BLOB")) return ColumnType.BLOB;
-
-  if (
-    type.includes("REAL") ||
-    type.includes("DOUBLE") ||
-    type.includes("FLOAT")
-  )
-    return ColumnType.REAL;
-
-  return ColumnType.TEXT;
-}
-
-function transformRawResult(raw: ResultSet): Result {
-  const headerSet = new Set();
-
-  const headers: ResultHeader[] = raw.columns.map((colName, colIdx) => {
-    const colType = raw.columnTypes[colIdx];
-    let renameColName = colName;
-
-    for (let i = 0; i < 20; i++) {
-      if (!headerSet.has(renameColName)) break;
-      renameColName = `__${colName}_${i}`;
-    }
-
-    headerSet.add(renameColName);
-
-    return {
-      name: renameColName,
-      displayName: colName,
-      originalType: colType,
-      type: convertSqliteType(colType),
-    };
-  });
-
-  const rows = raw.rows.map((r) =>
-    headers.reduce((a, b, idx) => {
-      a[b.name] = r[idx];
-      return a;
-    }, {} as Record<string, unknown>)
-  );
-
-  return {
-    rows,
-    stat: {
-      rowsAffected: raw.rowsAffected,
-      rowsRead: null,
-      rowsWritten: null,
-      queryDurationMs: 0,
-    },
-    headers,
-    lastInsertRowid:
-      raw.lastInsertRowid === undefined
-        ? undefined
-        : Number(raw.lastInsertRowid),
-  };
-}
-
 ```
+
+```json
+{
+  "type": "query",
+  "id": 1,
+  "channel": "6ed3eb71-431d-4e72-9e84-8d032b6935cb",
+  "error": "Query not permitted"
+}
+```
+
+Reply using `iframe.contentWindow.postMessage(response, studioOrigin)` with the
+exact Studio origin. Never use a wildcard target. Studio validates the response
+origin, actual parent window, channel, pending request ID, operation and result
+shape. Invalid or unexpected messages are ignored. Unmounting removes the
+listener and rejects pending requests.
+
+Embed pages use `Content-Security-Policy: frame-ancestors` with the configured
+parent origin and `Referrer-Policy: no-referrer`. The parent/backend remains
+responsible for authentication, authorization, credentials, query execution,
+transaction handling, session lifetime and resource limits.
+
+See the repository's `docs/embedding.md` for the full protocol and
+`docs/cloudflare.md` for build and Worker preview instructions.
 
 </DocContent>

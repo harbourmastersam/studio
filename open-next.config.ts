@@ -1,7 +1,8 @@
-// default open-next.config.ts file created by @opennextjs/cloudflare
-import { defineCloudflareConfig } from "@opennextjs/cloudflare/config";
-import kvIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache";
+import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+import staticAssetsIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/static-assets-incremental-cache";
 
 export default defineCloudflareConfig({
-  incrementalCache: kvIncrementalCache,
+  // Build-time pages use static assets; dynamic pages do not use ISR or a data cache.
+  incrementalCache: staticAssetsIncrementalCache,
+  enableCacheInterception: true,
 });

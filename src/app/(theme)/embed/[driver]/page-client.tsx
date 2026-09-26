@@ -23,11 +23,13 @@ export default function EmbedPageClient({
   driverName: string;
 }) {
   const searchParams = useSearchParams();
+  const channels = searchParams.getAll("channel");
+  const channel = channels.length === 1 ? channels[0] : null;
 
   const [driver, queryable] = useMemo(() => {
-    const queryable = new EmbedQueryable();
+    const queryable = new EmbedQueryable(channel);
     return [createDatabaseDriver(driverName, queryable), queryable];
-  }, [driverName]);
+  }, [driverName, channel]);
 
   const savedDocDriver = useMemo(() => {
     if (window.outerbaseIpc?.docs) {
