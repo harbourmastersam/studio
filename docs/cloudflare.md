@@ -25,6 +25,11 @@ or preview. Preview is local; do not use `--remote` for this validation.
 
 ## Production configuration
 
+The production URL is https://studio.greyharbour.net. The custom domain is
+recorded in `wrangler.jsonc`; Cloudflare manages its DNS and TLS certificate.
+The existing `outerbase-studio.scarlson6603.workers.dev` address also remains
+enabled. The Pelican Panel origin remains `https://panel.greyharbour.net`.
+
 In Cloudflare Workers Builds, select this repository's `develop` branch, use
 `npm ci` for installation and `npm run build:cloudflare` for the build. Set Node
 24 in the build environment. Configure the following **build-time** variable,

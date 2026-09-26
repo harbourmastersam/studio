@@ -2,6 +2,13 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
   "name": "outerbase-studio",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "studio.greyharbour.net",
+      "custom_domain": true
+    }
+  ],
   // next-themes serializes an inline script; keep_names injects an unavailable __name helper.
   "keep_names": false,
   "compatibility_date": "2026-09-25",
