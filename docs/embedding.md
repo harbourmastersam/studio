@@ -6,7 +6,8 @@ The existing `EmbedQueryable` flow is preserved:
 
 This task supplies only the Studio client. There is no Pelican plugin, database
 session backend, new query API or direct MySQL connection. Existing non-embed
-Studio features and Electron IPC remain available.
+Studio features and Electron IPC remain available in development or explicitly
+standalone local builds. Production exposes only the MySQL integration route.
 
 ## Configuration
 
@@ -14,7 +15,8 @@ Copy `.env.example` to `.env.local` for local development. Set this public value
 in the **build environment** for production:
 
 ```dotenv
-NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN=https://panel.example.com
+NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN=https://panel.greyharbour.net
+STUDIO_EMBED_ONLY=true
 ```
 
 Use one canonical HTTP(S) origin, including a non-default port if needed. Do not
@@ -25,20 +27,23 @@ origin. Studio development runs on port 3008, Worker preview on 8787.
 
 The value is compiled into both the browser bundle and Next response headers.
 Changing a Worker runtime variable alone cannot change it: rebuild and deploy
-the same artifact to update both. Missing configuration leaves normal Studio
-usable, denies all framing of `/embed/*`, and makes iframe initialization fail
+the same artifact to update both. Missing origin configuration denies all
+framing of `/embed/*` and makes iframe initialization fail
 with an actionable error. An invalid configured origin fails configuration load.
 
 Embed responses contain:
 
 ```http
-Content-Security-Policy: frame-ancestors https://panel.example.com
+Content-Security-Policy: frame-ancestors https://panel.greyharbour.net
 Referrer-Policy: no-referrer
 ```
 
-Without an origin, the policy is `frame-ancestors 'none'`. It does not block
-top-level navigation. Only `/embed/*` receives these headers. CSP checks every
+Without an origin, the policy is `frame-ancestors 'none'`. CSP checks every
 ancestor, so embedding the parent inside another origin will also be blocked.
+Separately, production middleware rejects top-level embed navigation and requests
+without iframe fetch metadata. It also blocks standalone routes. Development is
+unrestricted by default. See [the exact exposure rules](cloudflare.md#production-exposure-and-development).
+These checks are not authentication; Pelican remains the security boundary.
 
 ## Viewer channel
 
@@ -51,7 +56,7 @@ supplied nonce. Missing, duplicate, empty or invalid channels fail closed.
 Example only; generate a new value for every real viewer:
 
 ```text
-https://studio.example.com/embed/mysql?channel=6ed3eb71-431d-4e72-9e84-8d032b6935cb
+https://studio.greyharbour.net/embed/mysql?channel=6ed3eb71-431d-4e72-9e84-8d032b6935cb
 ```
 
 The channel is **not authentication or authorization**, and is not a database

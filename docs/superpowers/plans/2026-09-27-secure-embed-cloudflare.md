@@ -12,8 +12,7 @@
 
 - Work directly on `develop` as requested; no framework migration. The original
   no-deployment constraint was superseded by the user's later explicit request
-  to deploy to Cloudflare, selecting Scarlson6603@gmail.com's Account and
-  `https://panel.greyharbour.net` as the allowed parent.
+  to deploy to Cloudflare with `https://panel.greyharbour.net` as the allowed parent.
 - Minimum Next 15.5.14, OpenNext 1.17.3, Wrangler 4.59.3. Align MDX and Next ESLint configuration.
 - No database credentials, sessions, authentication backend, new drivers, or query proxy.
 - Normal Studio and Electron continue working without iframe configuration.

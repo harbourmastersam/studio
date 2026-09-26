@@ -4,8 +4,14 @@
 
 See [build and Cloudflare instructions](docs/cloudflare.md) and the
 [iframe transport contract](docs/embedding.md) for this fork's `/embed/mysql`
-integration. Studio remains the UI client: the future parent application owns
-authentication, authorization, database credentials and SQL execution.
+integration. Production is available only at https://studio.greyharbour.net and
+must be opened through https://panel.greyharbour.net. `/embed/mysql` is the
+supported production integration route; standalone routes return a minimal 403
+page. `workers.dev` and remote version preview URLs are disabled.
+
+Studio remains a UI client. Pelican owns authentication, authorization, sessions,
+database credentials and SQL execution. Fetch-metadata checks limit accidental
+standalone use; they are not authentication or database authorization.
 
 Use Node.js 24 LTS (22 or later required), then run:
 
@@ -19,7 +25,11 @@ npm run preview
 ```
 
 Configure `NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN` before building to enable embedding.
-Ordinary Studio pages work without it; framing is denied by default.
+Framing is denied without it. `STUDIO_EMBED_ONLY` defaults to `true` in production
+builds and `false` in `npm run dev`. Use `STUDIO_EMBED_ONLY=false` at build time
+for a standalone local build. Local Worker preview remains available and uses
+the build's exposure settings. See the deployment docs for request metadata and
+preview checks. The upstream features below remain available in development.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/outerbase/studio)
 

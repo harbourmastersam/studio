@@ -5,6 +5,12 @@ const { parseEmbedOrigin } = require("./src/lib/embed-origin");
 const embedOrigin = parseEmbedOrigin(
   process.env.NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN
 );
+const embedOnly =
+  process.env.STUDIO_EMBED_ONLY ??
+  (process.env.NODE_ENV === "production" ? "true" : "false");
+if (embedOnly !== "true" && embedOnly !== "false") {
+  throw new Error("STUDIO_EMBED_ONLY must be exactly true or false");
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -13,6 +19,7 @@ const nextConfig = {
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   env: {
     NEXT_PUBLIC_STUDIO_VERSION: pkg.version,
+    STUDIO_EMBED_ONLY: embedOnly,
   },
   async headers() {
     return [

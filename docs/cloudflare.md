@@ -27,16 +27,18 @@ or preview. Preview is local; do not use `--remote` for this validation.
 
 The production URL is https://studio.greyharbour.net. The custom domain is
 recorded in `wrangler.jsonc`; Cloudflare manages its DNS and TLS certificate.
-The existing `outerbase-studio.scarlson6603.workers.dev` address also remains
-enabled. The Pelican Panel origin remains `https://panel.greyharbour.net`.
+`workers_dev: false` and `preview_urls: false` disable the public workers.dev
+hostname and remote version preview URLs. Local Worker preview is unaffected.
+The only allowed production parent is `https://panel.greyharbour.net`.
 
 In Cloudflare Workers Builds, select this repository's `develop` branch, use
 `npm ci` for installation and `npm run build:cloudflare` for the build. Set Node
 24 in the build environment. Configure the following **build-time** variable,
-replacing the example with the actual HTTPS Pelican Panel origin:
+using the production Pelican Panel origin:
 
 ```dotenv
-NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN=https://panel.example.com
+NEXT_PUBLIC_EMBED_ALLOWED_ORIGIN=https://panel.greyharbour.net
+STUDIO_EMBED_ONLY=true
 ```
 
 This public value is not a secret. Rebuild whenever it changes; Next compiles it
@@ -68,6 +70,57 @@ Cloudflare account authorization. It is not part of local validation. A later
 user instruction authorized this task's production deployment. If separating
 CI build from deploy, deploy the already
 built artifact with `opennextjs-cloudflare deploy`.
+
+## Production exposure and development
+
+`STUDIO_EMBED_ONLY` is a public **build-time** flag, validated as exactly `true`
+or `false`. It defaults to `true` for production builds and `false` for `next dev`.
+Rebuild to change it. Do not set it to false in the production build environment.
+For standalone local `next start` or Worker preview, build with
+`STUDIO_EMBED_ONLY=false`. Development and Electron code are retained.
+
+In embed-only mode:
+
+- `/embed/mysql` accepts GET/HEAD document requests only with
+  `Sec-Fetch-Dest: iframe` and `Sec-Fetch-Mode: navigate`.
+- Same-origin framework fetches to that same route require `Sec-Fetch-Dest: empty`,
+  `Sec-Fetch-Site: same-origin` and a mode of `cors` or `same-origin`. Next strips
+  its internal RSC headers before middleware, so the guard uses fetch metadata.
+  Top-level documents cannot use this exception, even if an RSC header is sent.
+- Missing, malformed or contradictory metadata, other methods, and all other
+  application routes return HTTP 403 with a minimal “open from Pelican Panel”
+  page. This includes `/`, `/local/*`, `/connect`, `/w/*`, `/playground/*`,
+  `/client/*`, docs, sign-in, existing API/proxy routes, and alternate embed drivers.
+- `/_next/static/*`, `/_next/image`, `/icons/*`, `/extension/*`, and the favicon,
+  icon and apple-icon resources remain available. Public static files may also
+  be served directly by Cloudflare's asset binding; they do not expose app routes.
+- Embed and denial responses are private/no-store, vary by fetch metadata and
+  RSC, and keep `frame-ancestors https://panel.greyharbour.net` and `no-referrer`.
+
+Fetch metadata is **only an exposure control**. Non-browser clients can forge
+these headers. It does not authenticate users, authorize SQL, validate viewer
+sessions or protect database credentials. The Pelican plugin must own all of
+those responsibilities; no Cloudflare Access or Studio auth is implemented.
+
+After `npm run build:cloudflare`, run `npm run preview:cloudflare` and check:
+
+```sh
+# Allowed viewer document (200, with exact parent CSP):
+curl -i -H 'Sec-Fetch-Dest: iframe' -H 'Sec-Fetch-Mode: navigate' \
+  'http://localhost:8787/embed/mysql?channel=6ed3eb71-431d-4e72-9e84-8d032b6935cb'
+# Denied top-level navigation (403):
+curl -i -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' \
+  http://localhost:8787/embed/mysql
+# Denied standalone route and missing metadata (403):
+curl -i http://localhost:8787/local
+curl -i http://localhost:8787/embed/mysql
+```
+
+Deploy the validated artifact with `opennextjs-cloudflare deploy`. Verify the
+custom domain with the same request matrix and confirm workers.dev/version
+preview URLs are disabled in Cloudflare. A runtime-only variable change will
+not update the compiled guard or CSP. No database secrets or extra bindings are
+required. The next implementation work belongs in the Pelican plugin.
 
 ## Dependency maintenance decisions
 
