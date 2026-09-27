@@ -1,8 +1,9 @@
 "use client";
 import { parseEmbedOrigin } from "@/lib/embed-origin";
+import { generateId } from "@/lib/generate-id";
 import type { DatabaseResultSet, QueryableBaseDriver } from "./base-driver";
 
-type MessageIdentity = { id: number; channel: string };
+type MessageIdentity = { id: number; channel: string; document: string };
 
 export type EmbedRequest = MessageIdentity &
   (
@@ -31,6 +32,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function createDocumentId(): string {
+  return generateId().replaceAll("-", "").toLowerCase();
 }
 
 function isArrayOf<T>(
@@ -89,6 +94,7 @@ function readChannel(): string | null {
 class IframeConnection {
   private readonly origin: string;
   private readonly channel: string;
+  private readonly document = createDocumentId();
   private readonly pending = new Map<number, PendingRequest>();
   private state: "new" | "listening" | "closed" = "new";
 
@@ -116,6 +122,7 @@ class IframeConnection {
     if (
       !isRecord(message) ||
       message.channel !== this.channel ||
+      message.document !== this.document ||
       typeof message.id !== "number" ||
       !Number.isSafeInteger(message.id)
     )
@@ -185,6 +192,7 @@ class IframeConnection {
           type: "query",
           id: ++nextRequestId,
           channel: this.channel,
+          document: this.document,
           statement,
         },
         { type: "query", resolve, reject }
@@ -199,6 +207,7 @@ class IframeConnection {
           type: "transaction",
           id: ++nextRequestId,
           channel: this.channel,
+          document: this.document,
           statements,
         },
         { type: "transaction", resolve, reject }

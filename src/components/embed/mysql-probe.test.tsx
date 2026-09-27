@@ -45,6 +45,7 @@ describe("MySQL embed probe", () => {
       type: "query",
       id: expect.any(Number),
       channel,
+      document: expect.stringMatching(/^[a-f0-9]{32}$/),
       statement: "SELECT 1",
     });
     expect(post.mock.calls[0][1]).toBe(origin);

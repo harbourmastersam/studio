@@ -47,7 +47,14 @@ describe("iframe transport", () => {
   }
 
   function receive(data: unknown, overrides: Record<string, unknown> = {}) {
-    const event = { data, origin, source: parent, ...overrides };
+    const message =
+      typeof data === "object" && data !== null && !Array.isArray(data)
+        ? {
+            document: parent.postMessage.mock.calls.at(-1)?.[0]?.document,
+            ...data,
+          }
+        : data;
+    const event = { data: message, origin, source: parent, ...overrides };
     listeners.forEach((listener) =>
       listener(event as unknown as MessageEvent<unknown>)
     );
@@ -65,6 +72,7 @@ describe("iframe transport", () => {
       {
         type: "query",
         id: expect.any(Number),
+        document: expect.stringMatching(/^[a-f0-9]{32}$/),
         statement: "SELECT 42",
         channel,
       },
@@ -80,6 +88,7 @@ describe("iframe transport", () => {
     ["null source", { source: null }, {}],
     ["wrong channel", {}, { channel: "another_0123456789abcdefghijk" }],
     ["missing channel", {}, { channel: undefined }],
+    ["wrong document", {}, { document: "f".repeat(32) }],
     ["wrong response type", {}, { type: "transaction", data: [result] }],
     ["string request ID", {}, { id: "1" }],
     ["unknown request ID", {}, { id: -1 }],
@@ -143,6 +152,7 @@ describe("iframe transport", () => {
         type: "transaction",
         id: request.id,
         channel,
+        document: expect.stringMatching(/^[a-f0-9]{32}$/),
         statements: ["SELECT 42", "SELECT 42"],
       },
       origin
