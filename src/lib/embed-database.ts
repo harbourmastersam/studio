@@ -2,7 +2,17 @@ export type ParsedEmbedDatabase =
   | { valid: true; value: string }
   | { valid: false };
 
-const INVALID_DATABASE_CHARACTER = /[\u0000-\u001F\u007F\uFFFD]/u;
+function hasInvalidDatabaseCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0);
+    return (
+      codePoint === undefined ||
+      codePoint <= 0x1f ||
+      codePoint === 0x7f ||
+      codePoint === 0xfffd
+    );
+  });
+}
 
 export function parseEmbedDatabase(
   searchParams: Pick<URLSearchParams, "getAll">
@@ -15,7 +25,7 @@ export function parseEmbedDatabase(
   if (
     length === 0 ||
     length > 64 ||
-    INVALID_DATABASE_CHARACTER.test(value)
+    hasInvalidDatabaseCharacter(value)
   ) {
     return { valid: false };
   }
