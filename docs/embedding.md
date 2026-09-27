@@ -47,6 +47,26 @@ These checks are not authentication; Pelican remains the security boundary.
 
 ## Viewer channel
 
+### MySQL transport probe
+
+For the Pelican SELECT 1-only MVP, use `/embed/mysql?channel=<fresh-channel>&mode=probe`.
+Exactly one `mode=probe` parameter opts the MySQL embed page into a focused connection-test screen.
+It does not construct the normal Studio/MySQL driver, request schemas, run transactions, or initialize AI agents.
+Click **Run SELECT 1** to send one `type: "query"` request containing the literal `SELECT 1`, then display the actual returned result in a table.
+The query is deliberately fixed; this is not a general SQL editor.
+
+The probe uses the existing `EmbedQueryable` security checks without modification: exact parent origin/source,
+channel, safe request ID, matching operation and validated result shape. It closes listeners after each run,
+times out after ten seconds, supports retry and discards pending replies on unmount/channel changes.
+The parent still owns authentication, authorization and query restrictions; `mode=probe` grants no permissions.
+
+Deploy the new Studio build before updating Pelican Database Viewer to 0.1.1, which adds this parameter.
+An old Studio build ignores the parameter and still fails its normal schema-initialization transaction.
+Without this parameter the existing full Studio flow is unchanged and requires a broker supporting its schema queries.
+
+Tests: `src/components/embed/mysql-probe.test.tsx` and `src/app/(theme)/embed/[driver]/page-client.test.tsx`,
+alongside the existing iframe transport tests. Deployment and a real Pelican/MariaDB test are separate steps.
+
 The parent must create a fresh cryptographically random nonce for each viewer,
 with at least 128 bits of randomness (for example `crypto.randomUUID()`), and
 retain it with that viewer's iframe. Studio consumes one `channel` query parameter

@@ -1,5 +1,6 @@
 "use client";
 import { Studio } from "@/components/gui/studio";
+import MySQLProbe from "@/components/embed/mysql-probe";
 import { StudioExtensionManager } from "@/core/extension-manager";
 import {
   createMySQLExtensions,
@@ -22,6 +23,16 @@ export default function EmbedPageClient({
 }: {
   driverName: string;
 }) {
+  const params = useSearchParams();
+  const modes = params.getAll("mode");
+  const channels = params.getAll("channel");
+  if (driverName === "mysql" && modes.length === 1 && modes[0] === "probe") {
+    return <MySQLProbe channel={channels.length === 1 ? channels[0] : null} />;
+  }
+  return <EmbedStudioPage driverName={driverName} />;
+}
+
+function EmbedStudioPage({ driverName }: { driverName: string }) {
   const searchParams = useSearchParams();
   const channels = searchParams.getAll("channel");
   const channel = channels.length === 1 ? channels[0] : null;

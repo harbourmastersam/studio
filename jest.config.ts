@@ -13,6 +13,8 @@ const config: Config = {
     window: {},
   },
   testEnvironment: "node",
+  moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
   // Add more setup options before each test is run
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
 };
