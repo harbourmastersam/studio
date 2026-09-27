@@ -15,6 +15,7 @@ import { SqliteLikeBaseDriver } from "@/drivers/sqlite-base-driver";
 import DoltExtension from "@/extensions/dolt";
 import LocalSettingSidebar from "@/extensions/local-setting-sidebar";
 import { useAvailableAIAgents } from "@/lib/ai-agent-storage";
+import { parseEmbedDatabase } from "@/lib/embed-database";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
@@ -29,18 +30,42 @@ export default function EmbedPageClient({
   if (driverName === "mysql" && modes.length === 1 && modes[0] === "probe") {
     return <MySQLProbe channel={channels.length === 1 ? channels[0] : null} />;
   }
-  return <EmbedStudioPage driverName={driverName} />;
+
+  let selectedDatabase: string | undefined;
+  if (driverName === "mysql") {
+    const database = parseEmbedDatabase(params);
+    if (!database.valid) {
+      return <div role="alert">Unable to open this database viewer.</div>;
+    }
+    selectedDatabase = database.value;
+  }
+
+  return (
+    <EmbedStudioPage
+      driverName={driverName}
+      selectedDatabase={selectedDatabase}
+    />
+  );
 }
 
-function EmbedStudioPage({ driverName }: { driverName: string }) {
+function EmbedStudioPage({
+  driverName,
+  selectedDatabase,
+}: {
+  driverName: string;
+  selectedDatabase?: string;
+}) {
   const searchParams = useSearchParams();
   const channels = searchParams.getAll("channel");
   const channel = channels.length === 1 ? channels[0] : null;
 
   const [driver, queryable] = useMemo(() => {
     const queryable = new EmbedQueryable(channel);
-    return [createDatabaseDriver(driverName, queryable), queryable];
-  }, [driverName, channel]);
+    return [
+      createDatabaseDriver(driverName, queryable, selectedDatabase),
+      queryable,
+    ];
+  }, [driverName, channel, selectedDatabase]);
 
   const savedDocDriver = useMemo(() => {
     if (window.outerbaseIpc?.docs) {
@@ -70,7 +95,11 @@ function EmbedStudioPage({ driverName }: { driverName: string }) {
   );
 }
 
-function createDatabaseDriver(driverName: string, queryable: EmbedQueryable) {
+function createDatabaseDriver(
+  driverName: string,
+  queryable: EmbedQueryable,
+  selectedDatabase?: string
+) {
   if (driverName === "turso") {
     return new SqliteLikeBaseDriver(queryable);
   } else if (driverName === "sqlite") {
@@ -78,7 +107,7 @@ function createDatabaseDriver(driverName: string, queryable: EmbedQueryable) {
   } else if (driverName === "starbase") {
     return new SqliteLikeBaseDriver(queryable);
   } else if (driverName === "mysql" || driverName === "dolt") {
-    return new MySQLLikeDriver(queryable, "");
+    return new MySQLLikeDriver(queryable, selectedDatabase ?? "");
   } else if (driverName === "postgres") {
     return new PostgresLikeDriver(queryable);
   }

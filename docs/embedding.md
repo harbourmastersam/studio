@@ -64,6 +64,27 @@ Deploy the new Studio build before updating Pelican Database Viewer to 0.1.1, wh
 An old Studio build ignores the parameter and still fails its normal schema-initialization transaction.
 Without this parameter the existing full Studio flow is unchanged and requires a broker supporting its schema queries.
 
+### MySQL database scope
+
+Normal MySQL embeds require exactly one `database` query parameter. Studio uses
+that value to scope its schema bootstrap SQL to the database selected by the
+parent:
+
+```text
+https://studio.greyharbour.net/embed/mysql?channel=<fresh-channel>&database=<selected-database-name>
+```
+
+The decoded database name must contain 1–64 Unicode code points and must not
+contain ASCII control characters, `U+007F`, or the Unicode replacement
+character `U+FFFD`. Missing, empty, duplicate, malformed, or oversized values
+show a configuration error before Studio constructs its MySQL driver. The value
+is SQL scope only; it is not authentication or authorization. The parent must
+authorize every broker request against its own server-side database record.
+
+Explicit `mode=probe` remains a diagnostic path and does not require the
+`database` parameter. Other embedded drivers retain their existing parameter
+behavior.
+
 Tests: `src/components/embed/mysql-probe.test.tsx` and `src/app/(theme)/embed/[driver]/page-client.test.tsx`,
 alongside the existing iframe transport tests. Deployment and a real Pelican/MariaDB test are separate steps.
 
