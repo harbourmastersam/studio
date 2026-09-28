@@ -2,6 +2,7 @@
 import { parseEmbedOrigin } from "@/lib/embed-origin";
 import { generateId } from "@/lib/generate-id";
 import type { DatabaseResultSet, QueryableBaseDriver } from "./base-driver";
+import type { CommonAgentMessage } from "./agent/common";
 
 type MessageIdentity = { id: number; channel: string; document: string };
 
@@ -9,18 +10,21 @@ export type EmbedRequest = MessageIdentity &
   (
     | { type: "query"; statement: string }
     | { type: "transaction"; statements: string[] }
+    | { type: "ai"; messages: CommonAgentMessage[] }
   );
 
 export type EmbedResponse = MessageIdentity &
   (
     | { type: "query"; data: DatabaseResultSet; error?: never }
     | { type: "transaction"; data: DatabaseResultSet[]; error?: never }
-    | { type: "query" | "transaction"; error: string; data?: never }
+    | { type: "ai"; data: { response: string }; error?: never }
+    | { type: "query" | "transaction" | "ai"; error: string; data?: never }
   );
 
 type PendingRequest = { reject: (reason: Error) => void } & (
   | { type: "query"; resolve: (value: DatabaseResultSet) => void }
   | { type: "transaction"; resolve: (value: DatabaseResultSet[]) => void }
+  | { type: "ai"; resolve: (value: string) => void }
 );
 
 // Preserve numeric IDs, without reusing them across connections in this document.
@@ -28,6 +32,14 @@ let nextRequestId = 0;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, expected: string[]) {
+  const keys = Object.keys(value).sort();
+  return (
+    keys.length === expected.length &&
+    keys.every((key, index) => key === [...expected].sort()[index])
+  );
 }
 
 function isNumber(value: unknown): value is number {
@@ -81,6 +93,30 @@ function isResultSet(value: unknown): value is DatabaseResultSet {
       value.stat.queryDurationMs,
     ].every((stat) => stat === null || isNumber(stat)) &&
     (value.lastInsertRowid === undefined || isNumber(value.lastInsertRowid))
+  );
+}
+
+function validAgentMessages(messages: CommonAgentMessage[]) {
+  if (
+    !isArrayOf(
+      messages,
+      (message: unknown): message is CommonAgentMessage =>
+        isRecord(message) &&
+        hasExactKeys(message, ["role", "content"]) &&
+        ["system", "user", "assistant"].includes(String(message.role)) &&
+        typeof message.content === "string"
+    ) ||
+    messages.length < 1 ||
+    messages.length > 12
+  )
+    return false;
+  return (
+    messages.reduce(
+      (total, message) =>
+        total + new TextEncoder().encode(message.content).byteLength,
+      0
+    ) <=
+    24 * 1024
   );
 }
 
@@ -143,6 +179,14 @@ class IframeConnection {
     ) {
       this.pending.delete(message.id);
       pending.resolve(message.data);
+    } else if (
+      pending.type === "ai" &&
+      isRecord(message.data) &&
+      hasExactKeys(message.data, ["response"]) &&
+      typeof message.data.response === "string"
+    ) {
+      this.pending.delete(message.id);
+      pending.resolve(message.data.response);
     }
   };
 
@@ -214,6 +258,24 @@ class IframeConnection {
       );
     });
   }
+
+  ai(messages: CommonAgentMessage[]): Promise<string> {
+    if (!validAgentMessages(messages)) {
+      return Promise.reject(new Error("AI request is invalid or too large."));
+    }
+    return new Promise((resolve, reject) => {
+      this.send(
+        {
+          type: "ai",
+          id: ++nextRequestId,
+          channel: this.channel,
+          document: this.document,
+          messages: messages.map((message) => ({ ...message })),
+        },
+        { type: "ai", resolve, reject }
+      );
+    });
+  }
 }
 
 class ElectronConnection {
@@ -225,6 +287,9 @@ class ElectronConnection {
   }
   transaction(stmts: string[]): Promise<DatabaseResultSet[]> {
     return window.outerbaseIpc!.transaction(stmts);
+  }
+  ai(): Promise<string> {
+    return Promise.reject(new Error("Managed AI is unavailable in Electron."));
   }
 }
 
@@ -244,5 +309,8 @@ export class EmbedQueryable implements QueryableBaseDriver {
   }
   transaction(stmts: string[]): Promise<DatabaseResultSet[]> {
     return this.conn.transaction(stmts);
+  }
+  ai(messages: CommonAgentMessage[]): Promise<string> {
+    return this.conn.ai(messages);
   }
 }

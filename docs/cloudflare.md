@@ -42,12 +42,24 @@ STUDIO_EMBED_ONLY=true
 ```
 
 This public value is not a secret. Rebuild whenever it changes; Next compiles it
-into the client and CSP. No database/API credentials or database bindings are
-required for the embed client. See [the protocol](embedding.md) for nonce URLs
-and the parent responsibilities.
+into the client and CSP. See [the protocol](embedding.md) for nonce URLs and the
+parent responsibilities.
 
-`wrangler.jsonc` defines the Worker name, `.open-next/worker.js` entry point,
-`.open-next/assets` binding, `nodejs_compat`, observability, and compatibility
+The Worker also requires an encrypted runtime secret used only for Pelican's
+server-to-server AI broker:
+
+```sh
+npx wrangler secret put DATABASE_VIEWER_AI_TOKEN
+```
+
+Configure the same value as `DATABASE_VIEWER_AI_TOKEN` in Pelican and clear its
+configuration cache. The custom `worker.ts` entry point handles only the exact
+`/internal/ai` path, compares the bearer credential with a timing-safe primitive,
+invokes the fixed Llama 3.3 model through `env.AI`, and delegates every other
+request to the generated OpenNext handler.
+
+`wrangler.jsonc` defines the Worker name, custom `worker.ts` entry point,
+`.open-next/assets` and Workers AI bindings, `nodejs_compat`, observability, and compatibility
 date `2026-09-25` (matching the tested Wrangler/workerd release). The existing
 routes now use Next's Node runtime, as required by OpenNext. Do not restore
 `runtime = "edge"` declarations.
@@ -119,8 +131,8 @@ curl -i http://localhost:8787/embed/mysql
 Deploy the validated artifact with `opennextjs-cloudflare deploy`. Verify the
 custom domain with the same request matrix and confirm workers.dev/version
 preview URLs are disabled in Cloudflare. A runtime-only variable change will
-not update the compiled guard or CSP. No database secrets or extra bindings are
-required. The next implementation work belongs in the Pelican plugin.
+not update the compiled guard or CSP. Confirm unauthenticated `/internal/ai`
+requests return 401 and never expose model output.
 
 ## Dependency maintenance decisions
 

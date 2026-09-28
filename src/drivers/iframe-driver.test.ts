@@ -166,6 +166,72 @@ describe("iframe transport", () => {
     await expect(pending).resolves.toEqual([result, result]);
   });
 
+  it("sends bounded AI messages and accepts only a string response", async () => {
+    const connection = connect();
+    const messages = [
+      { role: "system", content: "Only return SQL" },
+      { role: "user", content: "List active users" },
+    ];
+    const pending = connection.ai(messages);
+    const request = lastRequest();
+    expect(parent.postMessage).toHaveBeenCalledWith(
+      {
+        type: "ai",
+        id: request.id,
+        channel,
+        document: expect.stringMatching(/^[a-f0-9]{32}$/),
+        messages,
+      },
+      origin
+    );
+    receive({
+      type: "ai",
+      id: request.id,
+      channel,
+      data: { response: "```sql\nSELECT * FROM users\n```" },
+    });
+    await expect(pending).resolves.toBe("```sql\nSELECT * FROM users\n```");
+  });
+
+  it("ignores malformed AI responses until a valid matching response arrives", async () => {
+    const connection = connect();
+    const pending = connection.ai([{ role: "user", content: "Count users" }]);
+    const request = lastRequest();
+    const settled = jest.fn();
+    void pending.then(settled, settled);
+
+    receive({ type: "ai", id: request.id, channel, data: { response: 12 } });
+    receive({
+      type: "ai",
+      id: request.id,
+      channel,
+      data: { response: "SELECT 1", extra: true },
+    });
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+
+    receive({
+      type: "ai",
+      id: request.id,
+      channel,
+      data: { response: "```sql\nSELECT COUNT(*) FROM users\n```" },
+    });
+    await expect(pending).resolves.toContain("COUNT(*)");
+  });
+
+  it.each([
+    [[], "empty"],
+    [Array(13).fill({ role: "user", content: "x" }), "too many"],
+    [[{ role: "tool", content: "x" }], "invalid role"],
+    [[{ role: "user", content: "x".repeat(24 * 1024 + 1) }], "oversized"],
+  ])("rejects %s AI messages before posting", async (messages) => {
+    const connection = connect();
+    await expect(
+      connection.ai(messages as { role: string; content: string }[])
+    ).rejects.toThrow(/AI request/i);
+    expect(parent.postMessage).not.toHaveBeenCalled();
+  });
+
   it("rejects the matching transaction on an error response", async () => {
     const connection = connect();
     const pending = connection.transaction(["invalid sql"]);

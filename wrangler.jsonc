@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "account_id": "7e75d1350b9d75dddd9d48946c5ae6da",
+  "main": "worker.ts",
   "name": "outerbase-studio",
   "workers_dev": false,
   "preview_urls": false,
@@ -17,6 +18,9 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "ai": {
+    "binding": "AI"
   },
   "observability": {
     "enabled": true,

@@ -1,4 +1,5 @@
 import AgentDriverList from "@/drivers/agent/list";
+import type { ManagedAgentQuery } from "@/drivers/agent/pelican";
 import { BaseDriver } from "@/drivers/base-driver";
 import { useMemo } from "react";
 import useSWR, { mutate } from "swr";
@@ -32,7 +33,10 @@ export function updateAgentFromLocalStorage(data: LocalAgentType) {
   mutate("/local-agent-setting", data);
 }
 
-export function useAvailableAIAgents(databaseDriver?: BaseDriver | null) {
+export function useAvailableAIAgents(
+  databaseDriver?: BaseDriver | null,
+  managedQuery?: ManagedAgentQuery
+) {
   const { data: agentConfig } = useSWR(
     "/local-agent-setting",
     getAgentFromLocalStorage
@@ -40,6 +44,6 @@ export function useAvailableAIAgents(databaseDriver?: BaseDriver | null) {
 
   return useMemo(() => {
     if (!databaseDriver) return undefined;
-    return new AgentDriverList(databaseDriver, agentConfig?.token);
-  }, [databaseDriver, agentConfig]);
+    return new AgentDriverList(databaseDriver, agentConfig?.token, managedQuery);
+  }, [databaseDriver, agentConfig, managedQuery]);
 }

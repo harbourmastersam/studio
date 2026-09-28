@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useSearchParams } from "next/navigation";
 import MySQLLikeDriver from "@/drivers/mysql/mysql-driver";
 import { parseEmbedDatabase } from "@/lib/embed-database";
+import { useAvailableAIAgents } from "@/lib/ai-agent-storage";
+import { EmbedQueryable } from "@/drivers/iframe-driver";
 import EmbedPageClient from "./page-client";
 
 jest.mock("next/navigation", () => ({ useSearchParams: jest.fn() }));
@@ -141,6 +143,28 @@ describe("probe route selection", () => {
     expect(screen.getByText("Full Studio")).toBeTruthy();
     expect(MySQLLikeDriver).toHaveBeenCalledTimes(1);
     expect(jest.mocked(MySQLLikeDriver).mock.calls[0][1]).toBe("tenant's data");
+  });
+
+  it("routes embedded AI through the same channel-bound iframe connection", async () => {
+    jest.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams(
+        `channel=${channel}&database=s2_test`
+      ) as ReturnType<typeof useSearchParams>
+    );
+    const ai = jest
+      .spyOn(EmbedQueryable.prototype, "ai")
+      .mockResolvedValue("```sql\nSELECT 1\n```");
+
+    render(<EmbedPageClient driverName="mysql" />);
+
+    expect(useAvailableAIAgents).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Function)
+    );
+    const managedQuery = jest.mocked(useAvailableAIAgents).mock.calls[0][1]!;
+    const messages = [{ role: "user", content: "test" }];
+    await expect(managedQuery(messages)).resolves.toContain("SELECT 1");
+    expect(ai).toHaveBeenCalledWith(messages);
   });
 
   it.each([

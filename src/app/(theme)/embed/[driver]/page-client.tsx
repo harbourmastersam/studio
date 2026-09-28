@@ -77,7 +77,11 @@ function EmbedStudioPage({
     return new StudioExtensionManager(createEmbedExtensions(driverName));
   }, [driverName]);
 
-  const agentDriver = useAvailableAIAgents(driver);
+  const managedAgentQuery = useMemo(
+    () => queryable.ai.bind(queryable),
+    [queryable]
+  );
+  const agentDriver = useAvailableAIAgents(driver, managedAgentQuery);
 
   useEffect(() => {
     return queryable.listen();

@@ -135,6 +135,29 @@ Transaction request:
 }
 ```
 
+Managed AI request:
+
+```json
+{
+  "type": "ai",
+  "id": 3,
+  "channel": "6ed3eb71-431d-4e72-9e84-8d032b6935cb",
+  "document": "0123456789abcdef0123456789abcdef",
+  "messages": [{ "role": "user", "content": "Count active users" }]
+}
+```
+
+The embedded MySQL page routes this operation through Pelican rather than the
+legacy public Outerbase AI endpoint. The parent must authenticate and authorize
+it like a database request. Pelican forwards it to the Worker's protected
+`/internal/ai` route using a server-only bearer secret. AI requests allow 1–12
+messages, only `system`, `user`, and `assistant` roles, 24 KiB combined content,
+and a 16 KiB response. Cloudflare Workers AI receives the user's instruction,
+conversation history, selected SQL, and the schema DDL visible in Studio.
+
+AI success uses `type: "ai"` with a `data.response` string containing the SQL
+code block. AI errors use a string `error` and omit `data`.
+
 Query success (`data` is a result set):
 
 ```json

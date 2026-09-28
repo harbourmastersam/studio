@@ -4,6 +4,7 @@ import { BaseDriver } from "../base-driver";
 import { AgentBaseDriver, AgentPromptOption } from "./base";
 import { ChatGPTDriver } from "./chatgpt";
 import CloudflareAgentDriver from "./cloudflare";
+import PelicanAgentDriver, { ManagedAgentQuery } from "./pelican";
 
 interface AgentDriverListItem {
   name: string;
@@ -22,26 +23,36 @@ const DEFAULT_FREE_TIER_MODEL = "llama-3.3-70b";
 export default class AgentDriverList {
   protected dict: Record<string, AgentBaseDriver | undefined> = {};
   protected defaultModelName: string | undefined;
+  protected managed = false;
 
-  constructor(databaseDriver: BaseDriver, token?: string) {
+  constructor(
+    databaseDriver: BaseDriver,
+    token?: string,
+    managedQuery?: ManagedAgentQuery
+  ) {
+    this.managed = managedQuery !== undefined;
     this.dict = {
-      "llama-3.3-70b": new CloudflareAgentDriver(
-        databaseDriver,
-        "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-      ),
+      "llama-3.3-70b": managedQuery
+        ? new PelicanAgentDriver(databaseDriver, managedQuery)
+        : new CloudflareAgentDriver(
+            databaseDriver,
+            "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+          ),
 
-      "sqlcoder-7b-2": new CloudflareAgentDriver(
-        databaseDriver,
-        "@cf/defog/sqlcoder-7b-2"
-      ),
+      "sqlcoder-7b-2": managedQuery
+        ? undefined
+        : new CloudflareAgentDriver(databaseDriver, "@cf/defog/sqlcoder-7b-2"),
 
-      "gpt-4o mini": token
+      "gpt-4o mini": token && !managedQuery
         ? new ChatGPTDriver(databaseDriver, token)
         : undefined,
     };
 
+    const savedModel = localStorage.getItem("default-agent-model");
     this.defaultModelName =
-      localStorage.getItem("default-agent-model") ?? DEFAULT_FREE_TIER_MODEL;
+      savedModel && this.dict[savedModel]
+        ? savedModel
+        : DEFAULT_FREE_TIER_MODEL;
   }
 
   setDefaultModelName(name: string) {
@@ -67,12 +78,12 @@ export default class AgentDriverList {
         agents: [
           {
             name: "llama-3.3-70b",
-            free: true,
+            free: !this.managed,
             available: !!this.dict["llama-3.3-70b"],
           },
           {
             name: "sqlcoder-7b-2",
-            free: true,
+            free: !this.managed,
             available: !!this.dict["sqlcoder-7b-2"],
           },
         ],
