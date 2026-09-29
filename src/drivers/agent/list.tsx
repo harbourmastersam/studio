@@ -18,7 +18,7 @@ interface AgentDriverListGroup {
   agents: AgentDriverListItem[];
 }
 
-const DEFAULT_FREE_TIER_MODEL = "llama-3.3-70b";
+const DEFAULT_FREE_TIER_MODEL = "llama-4-scout";
 
 export default class AgentDriverList {
   protected dict: Record<string, AgentBaseDriver | undefined> = {};
@@ -32,11 +32,11 @@ export default class AgentDriverList {
   ) {
     this.managed = managedQuery !== undefined;
     this.dict = {
-      "llama-3.3-70b": managedQuery
+      "llama-4-scout": managedQuery
         ? new PelicanAgentDriver(databaseDriver, managedQuery)
         : new CloudflareAgentDriver(
             databaseDriver,
-            "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+            "@cf/meta/llama-4-scout-17b-16e-instruct"
           ),
 
       "sqlcoder-7b-2": managedQuery
@@ -77,9 +77,9 @@ export default class AgentDriverList {
         ),
         agents: [
           {
-            name: "llama-3.3-70b",
+            name: "llama-4-scout",
             free: !this.managed,
-            available: !!this.dict["llama-3.3-70b"],
+            available: !!this.dict["llama-4-scout"],
           },
           {
             name: "sqlcoder-7b-2",

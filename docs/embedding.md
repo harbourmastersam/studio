@@ -154,6 +154,9 @@ it like a database request. Pelican forwards it to the Worker's protected
 messages, only `system`, `user`, and `assistant` roles, 24 KiB combined content,
 and a 16 KiB response. Cloudflare Workers AI receives the user's instruction,
 conversation history, selected SQL, and the schema DDL visible in Studio.
+The Worker uses the fixed `@cf/meta/llama-4-scout-17b-16e-instruct` model
+through the `database-viewer` AI Gateway. Gateway caching is disabled, and the
+Gateway enforces a global rate ceiling plus daily and 30-day spend limits.
 
 AI success uses `type: "ai"` with a `data.response` string containing the SQL
 code block. AI errors use a string `error` and omit `data`.

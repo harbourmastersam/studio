@@ -16,7 +16,7 @@ describe("managed embedded AI agent", () => {
     const agents = new AgentDriverList(driver, undefined, transport);
 
     await expect(
-      agents.run("llama-3.3-70b", "Count users", undefined, { selected: "" })
+      agents.run("llama-4-scout", "Count users", undefined, { selected: "" })
     ).resolves.toBe("SELECT COUNT(*) FROM users\n");
     expect(transport).toHaveBeenCalledWith([
       expect.objectContaining({ role: "system" }),
@@ -26,14 +26,14 @@ describe("managed embedded AI agent", () => {
   });
 
   it("makes only the managed Cloudflare model available and repairs a stale default", () => {
-    localStorage.setItem("default-agent-model", "gpt-4o mini");
+    localStorage.setItem("default-agent-model", "llama-3.3-70b");
     const agents = new AgentDriverList(driver, "saved-browser-token", jest.fn());
 
-    expect(agents.getDefaultModelName()).toBe("llama-3.3-70b");
+    expect(agents.getDefaultModelName()).toBe("llama-4-scout");
     expect(agents.list().flatMap((group) => group.agents)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: "llama-3.3-70b",
+          name: "llama-4-scout",
           available: true,
           free: false,
         }),

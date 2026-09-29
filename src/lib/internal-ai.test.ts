@@ -58,8 +58,14 @@ describe("internal Workers AI endpoint", () => {
       response: "```sql\nSELECT 1\n```",
     });
     expect(env.AI.run).toHaveBeenCalledWith(
-      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      { messages, max_tokens: 1024, temperature: 0 }
+      "@cf/meta/llama-4-scout-17b-16e-instruct",
+      { messages, max_tokens: 1024, temperature: 0 },
+      {
+        gateway: {
+          id: "database-viewer",
+          skipCache: true,
+        },
+      }
     );
   });
 

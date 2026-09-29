@@ -55,8 +55,15 @@ npx wrangler secret put DATABASE_VIEWER_AI_TOKEN
 Configure the same value as `DATABASE_VIEWER_AI_TOKEN` in Pelican and clear its
 configuration cache. The custom `worker.ts` entry point handles only the exact
 `/internal/ai` path, compares the bearer credential with a timing-safe primitive,
-invokes the fixed Llama 3.3 model through `env.AI`, and delegates every other
+invokes the fixed Llama 4 Scout model through `env.AI`, and delegates every other
 request to the generated OpenNext handler.
+
+Inference is routed through the dedicated `database-viewer` AI Gateway with
+caching disabled because prompts contain private database schema metadata. The
+Gateway is configured with a global sliding limit of 10 requests per minute and
+blocking spend limits of $0.50 per day and $5 per 30-day window. Cloudflare's
+spend accounting is eventually consistent, so a small concurrent burst can
+slightly exceed those values before the Gateway begins returning HTTP 429.
 
 `wrangler.jsonc` defines the Worker name, custom `worker.ts` entry point,
 `.open-next/assets` and Workers AI bindings, `nodejs_compat`, observability, and compatibility

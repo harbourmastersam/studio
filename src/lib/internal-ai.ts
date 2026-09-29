@@ -1,4 +1,5 @@
-const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const GATEWAY = "database-viewer";
 const MAX_REQUEST_BYTES = 32 * 1024;
 const MAX_MESSAGES = 12;
 const MAX_CONTENT_BYTES = 24 * 1024;
@@ -14,7 +15,8 @@ export interface InternalAiEnvironment {
   AI: {
     run(
       model: string,
-      input: { messages: AiMessage[]; max_tokens: number; temperature: number }
+      input: { messages: AiMessage[]; max_tokens: number; temperature: number },
+      options?: { gateway: { id: string; skipCache: boolean } }
     ): Promise<unknown>;
   };
 }
@@ -120,11 +122,20 @@ export async function handleInternalAi(
   }
 
   try {
-    const result = await env.AI.run(MODEL, {
-      messages: payload.messages,
-      max_tokens: 1024,
-      temperature: 0,
-    });
+    const result = await env.AI.run(
+      MODEL,
+      {
+        messages: payload.messages,
+        max_tokens: 1024,
+        temperature: 0,
+      },
+      {
+        gateway: {
+          id: GATEWAY,
+          skipCache: true,
+        },
+      }
+    );
     if (
       !isRecord(result) ||
       typeof result.response !== "string" ||
